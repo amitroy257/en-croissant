@@ -32,6 +32,18 @@ En-Croissant is an open-source, cross-platform chess GUI that aims to be powerfu
 
 <img src="https://github.com/franciscoBSalgueiro/encroisssant-site/blob/master/public/showcase.webp" />
 
+## Additions in this fork
+
+This fork adds a **variation picker** for PGN navigation: when the current move has more
+than one possible next move (a variation branch), stepping forward opens a floating picker
+centered over the move list instead of silently following the mainline. Navigate the
+options with →/↓ or ←/↑, confirm with Enter, or click one directly; Esc or clicking outside
+dismisses it. Submitted upstream as
+[PR #884](https://github.com/franciscoBSalgueiro/en-croissant/pull/884).
+
+<img src="docs/screenshots/variation-picker-full.png" width="700" />
+<img src="docs/screenshots/variation-picker-closeup.png" width="500" />
+
 ## Building from source
 
 Refer to the [Tauri documentation](https://tauri.app/start/prerequisites/) for the requirements on your platform.
