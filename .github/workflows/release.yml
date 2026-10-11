@@ -4,9 +4,36 @@ on:
     tags:
       - "v*"
   workflow_dispatch:
+    inputs:
+      publish_draft:
+        description: "Publish this existing draft release (tag name) instead of building"
+        required: false
+        default: ""
+      publish_target:
+        description: "Commit the published tag points at (the one the draft was built from)"
+        required: false
+        default: ""
 
 jobs:
+  # Make an already built and checked draft release public.
+  publish:
+    if: inputs.publish_draft != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Publish the draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ inputs.publish_draft }}
+          TARGET: ${{ inputs.publish_target }}
+        run: |
+          gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false --latest ${TARGET:+--target "$TARGET"}
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json tagName,isDraft,url,assets \
+            --jq '{tagName, isDraft, url, assets: [.assets[].name]}'
+
   release:
+    if: inputs.publish_draft == ''
     permissions:
       contents: write
     strategy:
