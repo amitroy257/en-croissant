@@ -12,6 +12,7 @@ mod game;
 mod fs;
 mod lexer;
 mod oauth;
+mod open_files;
 mod opening;
 mod pgn;
 mod progress;
@@ -53,6 +54,7 @@ use crate::game::{
 use crate::fs::set_file_as_executable;
 use crate::lexer::lex_pgn;
 use crate::oauth::authenticate;
+use crate::open_files::{take_pending_open_files, OpenFilesState};
 use crate::pgn::{count_pgn_games, delete_game, read_games, write_game};
 use crate::puzzle::{
     delete_puzzle_database, get_puzzle, get_puzzle_db_info, get_puzzle_themes,
@@ -168,7 +170,8 @@ fn main() {
             preload_reference_db,
             get_progress,
             clear_progress,
-            get_sound_server_port
+            get_sound_server_port,
+            take_pending_open_files
         ))
         .events(tauri_specta::collect_events!(
             BestMovesPayload,
@@ -245,10 +248,11 @@ fn main() {
             Ok(())
         })
         .manage(AppState::default())
+        .manage(OpenFilesState::default())
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
-        .run(|app, event| {
-            if let tauri::RunEvent::ExitRequested { .. } = event {
+        .run(|app, event| match event {
+            tauri::RunEvent::ExitRequested { .. } => {
                 let state = app.state::<AppState>();
                 for entry in state.engine_processes.iter() {
                     if let Ok(mut process) = entry.value().try_lock() {
@@ -256,6 +260,16 @@ fn main() {
                     }
                 }
             }
+            #[cfg(any(target_os = "macos", target_os = "ios"))]
+            tauri::RunEvent::Opened { urls } => {
+                let paths = urls
+                    .into_iter()
+                    .filter_map(|url| url.to_file_path().ok())
+                    .map(|path| path.to_string_lossy().into_owned())
+                    .collect();
+                open_files::handle_opened_files(app, paths);
+            }
+            _ => {}
         });
 }
 

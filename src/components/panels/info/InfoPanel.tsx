@@ -9,11 +9,10 @@ import {
   Text,
   Tooltip,
 } from "@mantine/core";
-import { useToggle } from "@mantine/hooks";
 import { IconPlus } from "@tabler/icons-react";
 import { useAtom, useAtomValue } from "jotai";
 import { use, useState } from "react";
-import { useHotkeys } from "react-hotkeys-hook";
+import { useFileGameNavigation } from "@/hooks/useFileGameNavigation";
 import { useTranslation } from "react-i18next";
 import { useStore } from "zustand";
 import { commands } from "@/bindings";
@@ -21,11 +20,8 @@ import GameInfo from "@/components/common/GameInfo";
 import { TreeStateContext } from "@/components/common/TreeStateContext";
 import ConfirmChangesModal from "@/components/tabs/ConfirmChangesModal";
 import { currentTabAtom } from "@/state/atoms";
-import { keyMapAtom } from "@/state/keybinds";
-import { parsePGN } from "@/utils/chess";
 import { formatNumber } from "@/utils/format";
 import { getTabFile, getTabGameNumber } from "@/utils/tabs";
-import { unwrap } from "@/utils/unwrap";
 import FenSearch from "./FenSearch";
 import FileInfo from "./FileInfo";
 import GameSelector from "./GameSelector";
@@ -136,63 +132,15 @@ function GameSelectorAccordion({
   setGames: React.Dispatch<React.SetStateAction<Map<number, string>>>;
   addGame?: () => void;
 }) {
-  const store = use(TreeStateContext)!;
-  const dirty = useStore(store, (s) => s.dirty);
-  const setState = useStore(store, (s) => s.setState);
-  const [currentTab, setCurrentTab] = useAtom(currentTabAtom);
-
-  const [confirmChanges, toggleConfirmChanges] = useToggle();
-  const [tempPage, setTempPage] = useState(0);
-
-  const tabFile = getTabFile(currentTab);
-  const gameNumber = getTabGameNumber(currentTab);
+  const [, setCurrentTab] = useAtom(currentTabAtom);
+  const { tabFile, gameNumber, setPage, confirmChanges, toggleConfirmChanges, confirmPendingPage } =
+    useFileGameNavigation();
   const currentName = games.get(gameNumber) || "Untitled";
 
-  const keyMap = useAtomValue(keyMapAtom);
   const { t } = useTranslation();
-
-  useHotkeys(
-    keyMap.NEXT_GAME.keys,
-    () => {
-      if (!tabFile?.numGames) return;
-      void setPage(Math.min(gameNumber + 1, tabFile.numGames - 1));
-    },
-    {
-      enabled: !!tabFile,
-    },
-  );
-
-  useHotkeys(keyMap.PREVIOUS_GAME.keys, () => setPage(Math.max(0, gameNumber - 1)), {
-    enabled: !!tabFile,
-  });
 
   if (!tabFile) return null;
   const filePath = tabFile.path;
-
-  async function setPage(page: number, forced?: boolean) {
-    if (!forced && dirty) {
-      setTempPage(page);
-      toggleConfirmChanges();
-      return;
-    }
-
-    const data = unwrap(await commands.readGames(filePath, page, page));
-    const tree = await parsePGN(data[0]);
-    setState(tree);
-
-    setCurrentTab((prev) => {
-      if (prev.gameOrigin.kind !== "file" && prev.gameOrigin.kind !== "temp_file") {
-        return prev;
-      }
-      return {
-        ...prev,
-        gameOrigin: {
-          ...prev.gameOrigin,
-          gameNumber: page,
-        },
-      };
-    });
-  }
 
   async function deleteGame(index: number) {
     await commands.deleteGame(filePath, index);
@@ -219,9 +167,7 @@ function GameSelectorAccordion({
       <ConfirmChangesModal
         opened={confirmChanges}
         toggle={toggleConfirmChanges}
-        closeTab={() => {
-          void setPage(tempPage, true);
-        }}
+        closeTab={confirmPendingPage}
       />
       <Accordion
         styles={{

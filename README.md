@@ -44,6 +44,19 @@ dismisses it. Submitted upstream as
 <img src="docs/screenshots/variation-picker-full.png" width="700" />
 <img src="docs/screenshots/variation-picker-closeup.png" width="500" />
 
+It also adds:
+
+- **Open `.pgn` files from Finder** (macOS): the app registers itself for `.pgn` files, so it
+  can be chosen as the default app and double-clicking a PGN opens it in a new tab, whether
+  the app is closed or already running.
+- **Your tabs survive a restart**: open games, including every variation and comment you
+  added, and the game you were on in each file, come back when you reopen the app. They are
+  kept in `tab-session.json` in the app data folder.
+- **Previous game / Next game buttons** under the move controls when a PGN file holds several
+  games, with a "Game 3 of 50" counter (PageUp / PageDown also work).
+- **Recent files reopen correctly**: reopening a multi-game file from the home screen now
+  loads all of its games and returns to the one you were on, instead of showing only one game.
+
 ## Building from source
 
 Refer to the [Tauri documentation](https://tauri.app/start/prerequisites/) for the requirements on your platform.
@@ -58,8 +71,6 @@ pnpm build
 ```
 
 The built app can be found at `src-tauri/target/release`
-
-
 
 ## Contributing
 

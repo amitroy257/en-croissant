@@ -31,6 +31,7 @@ import { getTabFile, saveToFile } from "@/utils/tabs";
 import DetachedEval from "../common/DetachedEval";
 import GameNotation from "../common/GameNotation";
 import MoveControls from "../common/MoveControls";
+import FileGameControls from "./FileGameControls";
 import { TreeStateContext } from "../common/TreeStateContext";
 import AnalysisPanel from "../panels/analysis/AnalysisPanel";
 import AnnotationPanel from "../panels/annotation/AnnotationPanel";
@@ -272,6 +273,7 @@ function BoardAnalysis() {
               }
             />
             <MoveControls />
+            <FileGameControls />
           </Stack>
         )}
       </Portal>

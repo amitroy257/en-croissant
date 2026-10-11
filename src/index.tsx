@@ -4,6 +4,7 @@ import i18n from "i18next";
 import { createRoot } from "react-dom/client";
 import { initReactI18next } from "react-i18next";
 import App from "./App";
+import { restoreTabSession, startTabSessionAutosave } from "./state/tabSession";
 
 import be_BY from "./translation/be-BY.json";
 import de_DE from "./translation/de-DE.json";
@@ -60,4 +61,8 @@ setAutoFreeze(false);
 
 const container = document.getElementById("app");
 const root = createRoot(container!);
-root.render(<App />);
+// Bring back the tabs from the last run before anything reads them.
+restoreTabSession().finally(() => {
+  startTabSessionAutosave();
+  root.render(<App />);
+});

@@ -97,6 +97,7 @@ export async function openFile(
         name: recentName,
         path: fileInfo.path,
         type: fileInfo.metadata.type,
+        gameNumber,
     });
 
     return id;

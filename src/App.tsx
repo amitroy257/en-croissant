@@ -51,6 +51,7 @@ import "@/styles/global.css";
 
 import { commands } from "./bindings";
 import { openFile } from "./utils/files";
+import { getTabFile } from "./utils/tabs";
 
 const colorSchemeManager = localStorageColorSchemeManager({
   key: "mantine-color-scheme",
@@ -175,18 +176,37 @@ function useAppStartup() {
       if (telemetryEnabled) {
         posthog.capture("app_started", { version: await getVersion() });
       }
+      // Files to open: from the command line, or from the OS (e.g. double-clicking a
+      // .pgn in Finder on macOS). A file that is already open just gets focused.
+      const openFiles = (files: string[]) => {
+        for (const file of files) {
+          const openTab = store.get(tabsAtom).find((tab) => getTabFile(tab)?.path === file);
+          if (openTab) {
+            setActiveTab(openTab.value);
+            continue;
+          }
+          info(`Opening file: ${file}`);
+          openFile(file, setTabs, setActiveTab).catch((e: unknown) => {
+            error(`Failed to open ${file}: ${e}`);
+          });
+        }
+        if (files.length > 0) {
+          void router.navigate({ to: "/" });
+        }
+      };
+
       try {
         const matches = await getMatches();
-        if (matches.args.file.occurrences > 0) {
-          info(`Opening file from command line: ${matches.args.file.value}`);
-          if (typeof matches.args.file.value === "string") {
-            const file = matches.args.file.value;
-            openFile(file, setTabs, setActiveTab);
-          }
+        if (matches.args.file.occurrences > 0 && typeof matches.args.file.value === "string") {
+          openFiles([matches.args.file.value]);
         }
       } catch (e) {
         warn(`Failed to parse CLI args: ${e}`);
       }
+
+      // Listen first so nothing opened between the two calls is lost.
+      await listen<string[]>("open_files", (event) => openFiles(event.payload));
+      openFiles(await commands.takePendingOpenFiles());
 
       await preloadReferenceDb(store);
 

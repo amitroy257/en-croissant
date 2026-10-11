@@ -37,7 +37,19 @@
       "../sound/": "sound/"
     },
     "targets": "all",
-    "createUpdaterArtifacts": "v1Compatible"
+    "createUpdaterArtifacts": "v1Compatible",
+    "fileAssociations": [
+      {
+        "ext": [
+          "pgn"
+        ],
+        "name": "PGN",
+        "description": "Portable Game Notation",
+        "role": "Editor",
+        "rank": "Owner",
+        "mimeType": "application/x-chess-pgn"
+      }
+    ]
   },
   "build": {
     "beforeDevCommand": "pnpm start-vite",

@@ -127,7 +127,7 @@ export const createTreeStore = (id?: string, initialTree?: TreeState) => {
                 const node = getNodeAtPath(state.root, state.position);
                 const len = node.children.length;
                 if (len === 0) return state;
-                const nextIndex = ((state.highlightedVariationIndex + delta) % len + len) % len;
+                const nextIndex = (((state.highlightedVariationIndex + delta) % len) + len) % len;
                 return { ...state, highlightedVariationIndex: nextIndex };
             }),
 

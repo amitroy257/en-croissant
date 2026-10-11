@@ -459,6 +459,13 @@ async getSoundServerPort() : Promise<Result<number, string>> {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+/**
+ * Returns the files queued before the frontend was ready. After this call, new
+ * files are delivered through the `open_files` event instead.
+ */
+async takePendingOpenFiles() : Promise<string[]> {
+    return await TAURI_INVOKE("take_pending_open_files");
 }
 }
 

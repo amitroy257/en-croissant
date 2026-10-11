@@ -223,11 +223,17 @@ export type RecentFile = {
     path: string;
     type: "game" | "repertoire" | "tournament" | "puzzle" | "other";
     lastOpened: number;
+    // Last game viewed in this file, so reopening it continues from there.
+    gameNumber?: number;
 };
 
 const MAX_RECENT_FILES = 10;
 
-export const recentFilesAtom = atomWithStorage<RecentFile[]>("recent-files", []);
+// Read on init: the atoms below update this list while it isn't mounted, and would
+// otherwise start from an empty list and overwrite it.
+export const recentFilesAtom = atomWithStorage<RecentFile[]>("recent-files", [], undefined, {
+    getOnInit: true,
+});
 
 export const addRecentFileAtom = atom(null, (get, set, file: Omit<RecentFile, "lastOpened">) => {
     const current = get(recentFilesAtom);
@@ -235,6 +241,18 @@ export const addRecentFileAtom = atom(null, (get, set, file: Omit<RecentFile, "l
     const updated = [{ ...file, lastOpened: Date.now() }, ...filtered].slice(0, MAX_RECENT_FILES);
     set(recentFilesAtom, updated);
 });
+
+export const setRecentFileGameAtom = atom(
+    null,
+    (get, set, { path, gameNumber }: { path: string; gameNumber: number }) => {
+        const current = get(recentFilesAtom);
+        if (!current.some((f) => f.path === path && f.gameNumber !== gameNumber)) return;
+        set(
+            recentFilesAtom,
+            current.map((f) => (f.path === path ? { ...f, gameNumber } : f)),
+        );
+    },
+);
 
 // Database
 

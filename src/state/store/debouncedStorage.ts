@@ -29,22 +29,23 @@ function scheduleFlush(delay: number) {
     }, delay);
 }
 
+/** Writes any debounced tree states to sessionStorage right away. */
+export function flushPendingWrites() {
+    if (flushTimeout) {
+        clearTimeout(flushTimeout);
+        flushTimeout = null;
+    }
+
+    flush();
+}
+
 function bindFlushHandlers() {
     if (flushHandlersBound || typeof window === "undefined") {
         return;
     }
 
-    const flushAndClearTimeout = () => {
-        if (flushTimeout) {
-            clearTimeout(flushTimeout);
-            flushTimeout = null;
-        }
-
-        flush();
-    };
-
-    window.addEventListener("beforeunload", flushAndClearTimeout);
-    window.addEventListener("pagehide", flushAndClearTimeout);
+    window.addEventListener("beforeunload", flushPendingWrites);
+    window.addEventListener("pagehide", flushPendingWrites);
 
     flushHandlersBound = true;
 }
