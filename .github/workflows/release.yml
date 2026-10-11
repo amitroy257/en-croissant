@@ -11,16 +11,15 @@ jobs:
       contents: write
     strategy:
       fail-fast: false
+      # One at a time, so the second job uploads to the release the first one created.
+      max-parallel: 1
+      # This fork only ships macOS builds.
       matrix:
         include:
           - platform: 'macos-latest' # for Arm based macs (M1 and above).
             args: '--target aarch64-apple-darwin --bundles dmg'
           - platform: 'macos-latest' # for Intel based macs.
             args: '--target x86_64-apple-darwin --bundles dmg'
-          - platform: 'ubuntu-24.04'
-            args: ''
-          - platform: 'windows-latest'
-            args: '--bundles nsis'
     runs-on: ${{ matrix.platform }}
     steps:
       - name: Checkout repository
@@ -66,18 +65,34 @@ jobs:
       - name: Install app dependencies
         run: pnpm install --frozen-lockfile
 
+      # Fork builds: the updater key and update server belong to upstream, so skip the
+      # signed updater artifacts and don't offer upstream updates, which would replace
+      # this build and its features.
+      - name: Fork build config
+        shell: bash
+        run: |
+          echo '{"bundle":{"createUpdaterArtifacts":false},"plugins":{"updater":{"endpoints":[]}}}' \
+            > "$RUNNER_TEMP/fork.conf.json"
+
       - name: Build the app
         uses: tauri-apps/tauri-action@v0
 
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
           CI: false
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: "v__VERSION__"
-          releaseBody: "See the assets to download and install this version."
+          # Tag pushes release under that tag; manual runs get a numbered fork tag.
+          tagName: ${{ github.ref_type == 'tag' && github.ref_name || format('v__VERSION__-fork.{0}', github.run_number) }}
+          releaseName: "En Croissant __VERSION__ (fork build)"
+          releaseBody: |
+            Custom macOS build of En Croissant from this fork. See "Additions in this fork" in the README for what it adds.
+
+            ## Install
+            Download the `.dmg` for your Mac (`aarch64` = Apple Silicon M1 and later, `x64` = Intel), open it and drag En Croissant into Applications.
+
+            The app isn't notarized by Apple, so macOS blocks the first launch. Open it once with right-click → Open (or System Settings → Privacy & Security → Open Anyway), or run:
+            `xattr -dr com.apple.quarantine /Applications/en-croissant.app`
+          # Drafts are only visible to the repo owner; publish after checking the build.
           releaseDraft: true
           prerelease: false
-          args: ${{ matrix.args }}
+          args: ${{ matrix.args }} --config ${{ runner.temp }}/fork.conf.json
