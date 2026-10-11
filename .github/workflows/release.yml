@@ -75,6 +75,7 @@ jobs:
             > "$RUNNER_TEMP/fork.conf.json"
 
       - name: Build the app
+        id: build
         uses: tauri-apps/tauri-action@v0
 
         env:
@@ -92,7 +93,74 @@ jobs:
 
             The app isn't notarized by Apple, so macOS blocks the first launch. Open it once with right-click → Open (or System Settings → Privacy & Security → Open Anyway), or run:
             `xattr -dr com.apple.quarantine /Applications/en-croissant.app`
-          # Drafts are only visible to the repo owner; publish after checking the build.
+          # Stays a draft (visible only to the repo owner) until the publish job below.
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }} --config ${{ runner.temp }}/fork.conf.json
+
+      # Smoke test the Apple Silicon .dmg on this (Apple Silicon) runner: install it,
+      # open PGNs through macOS like a Finder double-click, and check the tabs come
+      # back after a restart. Screenshots and the app log are uploaded as an artifact.
+      - name: Smoke test the app
+        if: contains(matrix.args, 'aarch64')
+        shell: bash
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/smoke"
+          mkdir -p "$out"
+          log="$HOME/Library/Logs/org.encroissant.app/en-croissant.log"
+          wait_for() {
+            for _ in $(seq 120); do
+              grep -q "$1" "$log" 2>/dev/null && return 0
+              sleep 1
+            done
+            echo "Timed out waiting for log line: $1"
+            cat "$log" || true
+            return 1
+          }
+          # perl's alarm stands in for `timeout`, which macOS lacks.
+          shot() { sleep 5; perl -e 'alarm 20; exec @ARGV' screencapture -x "$out/$1.png" || true; }
+
+          dmg=$(ls src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg | head -1)
+          hdiutil attach "$dmg" -nobrowse -mountpoint /Volumes/ec
+          cp -R /Volumes/ec/*.app /Applications/
+          hdiutil detach /Volumes/ec
+          app=$(ls -d /Applications/en-croissant.app)
+
+          echo "Declared document types:"
+          /usr/libexec/PlistBuddy -c "Print :CFBundleDocumentTypes" "$app/Contents/Info.plist" | tee "$out/document-types.txt"
+          grep -q pgn "$out/document-types.txt"
+          /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "$app"
+
+          for i in $(seq 1 50); do
+            printf '[Event "Test %s"]\n[White "White%s"]\n[Black "Black%s"]\n[Result "*"]\n\n1. e4 e5 (1... c5 2. Nf3) 2. Nf3 Nc6 *\n\n' "$i" "$i" "$i"
+          done > "$out/fifty.pgn"
+          printf '[Event "Second"]\n[White "Second"]\n[Black "File"]\n[Result "*"]\n\n1. d4 d5 *\n' > "$out/second.pgn"
+
+          # No app named: macOS uses the default app for .pgn, as Finder does.
+          open "$out/fifty.pgn"
+          wait_for "Files opened by the OS"
+          wait_for "Opening file: .*fifty.pgn"
+          shot 1-opened-from-finder
+
+          # Another file while the app is already running.
+          open "$out/second.pgn"
+          wait_for "Opening file: .*second.pgn"
+          shot 2-second-file-while-running
+
+          # Kill (harsher than quitting) and relaunch: both tabs come back.
+          pkill -x en-croissant
+          sleep 3
+          open -a "$app"
+          wait_for "Restored 2 tabs"
+          shot 3-after-restart
+
+          pkill -x en-croissant || true
+          cp "$log" "$out/"
+
+      - name: Upload smoke test results
+        if: always() && contains(matrix.args, 'aarch64')
+        uses: actions/upload-artifact@v4
+        with:
+          name: mac-smoke-test
+          path: ${{ runner.temp }}/smoke
